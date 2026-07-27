@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Task Tracker — Kanban</title>
+  <style>
+    :root {
+      --bg-0: #090c16;
+      --bg-1: #0f1524;
+      --panel: rgba(24, 32, 52, 0.66);
+      --panel-solid: #171f34;
+      --panel-2: #1c2540;
+      --card: #1a2340;
+      --text: #e8ecf6;
+      --muted: #93a0bd;
+      --border: rgba(148, 163, 184, 0.16);
+      --border-strong: rgba(148, 163, 184, 0.28);
+      --accent: #818cf8;
+      --accent-2: #c084fc;
+      --low: #34d399;
+      --medium: #fbbf24;
+      --high: #fb7185;
+      --shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.6);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      color: var(--text);
+      min-height: 100vh;
+      background:
+        radial-gradient(1100px 620px at 82% -8%, rgba(129, 140, 248, 0.16), transparent 60%),
+        radial-gradient(900px 560px at 8% 4%, rgba(192, 132, 252, 0.12), transparent 55%),
+        linear-gradient(180deg, var(--bg-1), var(--bg-0));
+      background-attachment: fixed;
+    }
+    header {
+      padding: 20px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      background: rgba(10, 14, 25, 0.55);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .status-dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--muted);
+      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.14);
+      transition: background .25s, box-shadow .25s;
+    }
+    .status-dot.ok { background: var(--low); box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.18); }
+    .status-dot.err { background: var(--high); box-shadow: 0 0 0 3px rgba(251, 113, 133, 0.2); }
+    #api-status { color: var(--muted); font-size: 13px; }
+
+    .add {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    dialog {
+      background: var(--panel-solid);
+      color: var(--text);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      padding: 0;
+      width: min(440px, 92vw);
+      box-shadow: var(--shadow);
+    }
+    dialog[open] { animation: pop .18s ease-out; }
+    @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+    dialog::backdrop { background: rgba(5, 8, 16, 0.6); backdrop-filter: blur(3px); }
+    .dialog-body { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+    .dialog-body h2 { margin: 0 0 2px; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: 12px; font-weight: 500; color: var(--muted); }
+    .field input, .field select, .field textarea { width: 100%; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+
+    input, select, button, textarea {
+      font: inherit;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 9px 11px;
+      transition: border-color .15s, box-shadow .15s, background .15s, transform .05s;
+    }
+    textarea { resize: vertical; }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.22);
+    }
+    button { cursor: pointer; }
+    button:hover { border-color: var(--border-strong); background: var(--card); }
+    button:active { transform: translateY(1px); }
+    button.primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #fff;
+      border: none;
+      font-weight: 600;
+      box-shadow: 0 6px 18px -6px rgba(129, 140, 248, 0.6);
+    }
+    button.primary:hover { filter: brightness(1.07); background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      padding: 28px;
+      max-width: 1280px;
+      margin: 0 auto;
+      align-items: start;
+    }
+    @media (max-width: 800px) { .board { grid-template-columns: 1fr; padding: 20px; } }
+
+    .column {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 14px 6px;
+      min-height: 140px;
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      transition: outline-color .15s, background .15s;
+    }
+    .column[data-status="ToDo"]       { --col: #60a5fa; }
+    .column[data-status="InProgress"] { --col: #fbbf24; }
+    .column[data-status="Done"]       { --col: #34d399; }
+    .column h2 {
+      margin: 2px 4px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .column h2::before {
+      content: "";
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--col, var(--muted));
+      box-shadow: 0 0 10px -1px var(--col, transparent);
+    }
+    .count {
+      margin-left: auto;
+      color: var(--text);
+      font-weight: 600;
+      font-size: 11px;
+      background: rgba(148, 163, 184, 0.16);
+      padding: 2px 9px;
+      border-radius: 999px;
+      letter-spacing: 0;
+    }
+
+    .card {
+      position: relative;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 11px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+      animation: cardIn .2s ease-out;
+    }
+    @keyframes cardIn { from { opacity: 0; transform: translateY(6px); } }
+    .card::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 10px; bottom: 10px;
+      width: 3px;
+      border-radius: 3px;
+      background: var(--muted);
+    }
+    .card.p-Low::before { background: var(--low); }
+    .card.p-Medium::before { background: var(--medium); }
+    .card.p-High::before { background: var(--high); }
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-strong);
+      box-shadow: 0 12px 24px -14px rgba(0, 0, 0, 0.75);
+    }
+    .card[draggable="true"] { cursor: grab; }
+    .card.dragging { opacity: 0.5; cursor: grabbing; transform: rotate(1.5deg) scale(1.02); }
+    .column.drop-ok {
+      outline: 2px dashed var(--accent); outline-offset: -5px;
+      background: rgba(129, 140, 248, 0.08);
+    }
+    .column.drop-bad {
+      outline: 2px dashed var(--high); outline-offset: -5px;
+      background: rgba(251, 113, 133, 0.06);
+    }
+    .card .title { font-weight: 600; margin-bottom: 4px; word-break: break-word; letter-spacing: -0.005em; }
+    .card .desc { font-size: 13px; color: var(--muted); margin-bottom: 10px; word-break: break-word; line-height: 1.45; }
+    .card .meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.14);
+      color: var(--muted);
+    }
+    .badge.p-Low { color: var(--low); background: rgba(52, 211, 153, 0.14); }
+    .badge.p-Medium { color: var(--medium); background: rgba(251, 191, 36, 0.14); }
+    .badge.p-High { color: var(--high); background: rgba(251, 113, 133, 0.16); }
+    .badge.due { color: #7dd3fc; background: rgba(56, 189, 248, 0.14); }
+    .badge.overdue { color: #fff; background: rgba(251, 113, 133, 0.85); }
+
+    .card .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .chip {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 9px;
+      border-radius: 6px;
+      background: rgba(129, 140, 248, 0.14);
+      color: var(--accent);
+      border: 1px solid rgba(129, 140, 248, 0.22);
+    }
+
+    .filters {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 12px 28px;
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+    .filters input[type="text"] { min-width: 180px; }
+    .filters .check {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 13px; color: var(--muted);
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 9px; padding: 8px 11px; cursor: pointer;
+    }
+    .filters .check input { width: auto; padding: 0; }
+    .filters #filter-info { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+    .card .actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .card .actions button { padding: 6px 10px; font-size: 12px; border-radius: 8px; }
+    .btn-del { margin-left: auto; color: var(--high); border-color: transparent; background: transparent; }
+    .btn-del:hover { background: rgba(251, 113, 133, 0.14); border-color: transparent; }
+    .card .edit-title, .card .edit-desc, .card .edit-priority { width: 100%; margin-bottom: 7px; }
+
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+      padding: 22px 0;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      margin-bottom: 8px;
+    }
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(8px);
+      background: var(--panel-solid);
+      border: 1px solid var(--high);
+      color: var(--text);
+      padding: 12px 18px; border-radius: 12px;
+      box-shadow: var(--shadow);
+      opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; max-width: 90vw;
+      font-size: 14px;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📋 Task Tracker</h1>
+    <span class="status-dot" id="dot"></span>
+    <span id="api-status">connecting…</span>
+
+    <div class="add">
+      <button class="primary" id="open-new">+ New Task</button>
+      <button type="button" id="refresh">Refresh</button>
+    </div>
+  </header>
+
+  <dialog id="task-dialog">
+    <form class="dialog-body" id="new-form">
+      <h2>New Task</h2>
+      <div class="field">
+        <label for="f-title">Title *</label>
+        <input id="f-title" maxlength="200" required placeholder="What needs doing?" />
+      </div>
+      <div class="field">
+        <label for="f-desc">Description</label>
+        <textarea id="f-desc" rows="3" placeholder="Details (optional)"></textarea>
+      </div>
+      <div class="field">
+        <label for="f-status">Status</label>
+        <select id="f-status">
+          <option value="ToDo" selected>To Do</option>
+          <option value="InProgress">In Progress</option>
+          <option value="Done">Done</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="f-priority">Priority</label>
+        <select id="f-priority">
+          <option value="Low">Low</option>
+          <option value="Medium" selected>Medium</option>
+          <option value="High">High</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="f-assignee">Assignee</label>
+        <input id="f-assignee" placeholder="Name (optional)" />
+      </div>
+      <div class="field">
+        <label for="f-due">Due date</label>
+        <input id="f-due" type="date" />
+      </div>
+      <div class="field">
+        <label for="f-tags">Tags</label>
+        <input id="f-tags" placeholder="comma, separated (optional)" />
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="cancel-new">Cancel</button>
+        <button class="primary" type="submit">Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="filters" id="filters">
+    <input id="filter-tag" type="text" placeholder="Filter by tag…" />
+    <label class="check"><input id="filter-overdue" type="checkbox" /> Overdue only</label>
+    <button type="button" id="clear-filters">Clear</button>
+    <span id="filter-info"></span>
+  </div>
+
+  <div class="board" id="board"></div>
+  <div id="toast"></div>
+
+  <script>
+    const API = "http://localhost:8000";
+
+    // status -> {label, valid next moves} per business_rules.py transition table
+    const COLUMNS = [
+      { status: "ToDo",       label: "To Do" },
+      { status: "InProgress", label: "In Progress" },
+      { status: "Done",       label: "Done" },
+    ];
+    // Allowed transitions: ToDo->InProgress, InProgress->Done. Done is terminal.
+    const MOVES = {
+      ToDo:       [{ to: "InProgress", label: "Start →" }],
+      InProgress: [{ to: "Done",       label: "Finish ✓" }],
+      Done:       [],
+    };
+
+    // Sort order within a column: High first, then Medium, then Low.
+    const PRIORITY_RANK = { High: 0, Medium: 1, Low: 2 };
+
+    // A drop from `from` onto column `to` is allowed iff it's a listed transition.
+    function canMove(from, to) {
+      return (MOVES[from] || []).some(m => m.to === to);
+    }
+
+    // "a, b ,,c" -> ["a","b","c"]. Backend also trims/validates; this just keeps
+    // the payload clean and drops empty segments so a trailing comma is harmless.
+    function parseTags(str) {
+      return String(str || "").split(",").map(s => s.trim()).filter(Boolean);
+    }
+
+    // Client-side view filters (tag substring + overdue). Applied over the last
+    // loaded list so toggling doesn't require a refetch; the backend exposes the
+    // same ?tag= / ?overdue= filters and is covered by tests.
+    let currentTasks = [];
+    const filters = { tag: "", overdue: false };
+
+    function applyFilters(tasks) {
+      const needle = filters.tag.trim().toLowerCase();
+      return tasks.filter(t => {
+        if (filters.overdue && !t.overdue) return false;
+        if (needle && !(t.tags || []).some(x => x.toLowerCase().includes(needle))) return false;
+        return true;
+      });
+    }
+
+    // dataTransfer isn't readable during dragover, so stash the dragged card here.
+    let dragFrom = null;
+
+    const board = document.getElementById("board");
+    const dot = document.getElementById("dot");
+    const apiStatus = document.getElementById("api-status");
+
+    function toast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => t.classList.remove("show"), 3200);
+    }
+
+    function setStatus(ok, msg) {
+      dot.className = "status-dot " + (ok ? "ok" : "err");
+      apiStatus.textContent = msg;
+    }
+
+    async function api(path, options) {
+      const res = await fetch(API + path, {
+        headers: { "Content-Type": "application/json" },
+        ...options,
+      });
+      if (!res.ok) {
+        let detail = res.statusText;
+        try { detail = (await res.json()).detail || detail; } catch (_) {}
+        throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+      }
+      return res.status === 204 ? null : res.json();
+    }
+
+    function esc(s) {
+      return String(s ?? "").replace(/[&<>"']/g, c =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    function cardEl(task) {
+      const el = document.createElement("div");
+      el.className = "card p-" + task.priority;
+      el.draggable = true;
+      el.dataset.id = task.id;
+      el.dataset.status = task.status;
+      el.addEventListener("dragstart", (e) => {
+        dragFrom = { id: task.id, status: task.status };
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", task.id);
+        el.classList.add("dragging");
+      });
+      el.addEventListener("dragend", () => {
+        dragFrom = null;
+        el.classList.remove("dragging");
+        document.querySelectorAll(".column").forEach(c => c.classList.remove("drop-ok", "drop-bad"));
+      });
+      renderView(el, task);
+      return el;
+    }
+
+    function renderView(el, task) {
+      const moves = (MOVES[task.status] || [])
+        .map(m => `<button data-move="${m.to}">${m.label}</button>`).join("");
+      const dueBadge = task.due_date
+        ? `<span class="badge ${task.overdue ? "overdue" : "due"}">${task.overdue ? "⚠ " : "📅 "}${esc(task.due_date)}</span>`
+        : "";
+      const tagChips = (task.tags && task.tags.length)
+        ? `<div class="tags">${task.tags.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>`
+        : "";
+      el.innerHTML = `
+        <div class="title">${esc(task.title)}</div>
+        ${task.description ? `<div class="desc">${esc(task.description)}</div>` : ""}
+        <div class="meta">
+          <span class="badge p-${task.priority}">${task.priority}</span>
+          ${task.assignee ? `<span class="badge">@${esc(task.assignee)}</span>` : ""}
+          ${dueBadge}
+        </div>
+        ${tagChips}
+        <div class="actions">
+          ${moves}
+          <button data-edit="1">Edit</button>
+          <button class="btn-del" data-del="1">Delete</button>
+        </div>`;
+
+      el.querySelectorAll("[data-move]").forEach(btn =>
+        btn.onclick = () => moveTask(task.id, btn.getAttribute("data-move")));
+      el.querySelector("[data-edit]").onclick = () => renderEdit(el, task);
+      el.querySelector("[data-del]").onclick = () => deleteTask(task.id, task.title);
+    }
+
+    function renderEdit(el, task) {
+      const opts = ["Low", "Medium", "High"]
+        .map(p => `<option value="${p}"${p === task.priority ? " selected" : ""}>${p}</option>`).join("");
+      el.innerHTML = `
+        <input class="edit-title" maxlength="200" value="${esc(task.title)}" placeholder="Title" />
+        <textarea class="edit-desc" rows="2" placeholder="Description">${esc(task.description || "")}</textarea>
+        <select class="edit-priority">${opts}</select>
+        <input class="edit-due" type="date" value="${esc(task.due_date || "")}" />
+        <input class="edit-tags" value="${esc((task.tags || []).join(", "))}" placeholder="tags, comma separated" />
+        <div class="actions">
+          <button class="primary" data-save="1">Save</button>
+          <button data-cancel="1">Cancel</button>
+        </div>`;
+
+      el.querySelector("[data-cancel]").onclick = () => renderView(el, task);
+      el.querySelector("[data-save]").onclick = async () => {
+        const title = el.querySelector(".edit-title").value.trim();
+        const description = el.querySelector(".edit-desc").value;
+        const priority = el.querySelector(".edit-priority").value;
+        const due = el.querySelector(".edit-due").value; // "" clears the date
+        const tags = parseTags(el.querySelector(".edit-tags").value);
+        if (!title) { toast("Title cannot be blank"); return; }
+        try {
+          await api(`/tasks/${task.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ title, description, priority, due_date: due || null, tags }),
+          });
+          load();
+        } catch (e) { toast(e.message); }
+      };
+    }
+
+    async function load() {
+      try {
+        const tasks = await api("/tasks");
+        currentTasks = tasks;
+        setStatus(true, `connected · ${tasks.length} task${tasks.length === 1 ? "" : "s"}`);
+        render();
+      } catch (e) {
+        setStatus(false, "API unreachable — is the server running on :8000? (CORS may be blocking)");
+        currentTasks = [];
+        board.innerHTML = "";
+      }
+    }
+
+    function updateFilterInfo(shown) {
+      const info = document.getElementById("filter-info");
+      const active = filters.overdue || filters.tag.trim();
+      info.textContent = active ? `showing ${shown} of ${currentTasks.length}` : "";
+    }
+
+    function render() {
+      const tasks = applyFilters(currentTasks);
+      updateFilterInfo(tasks.length);
+      board.innerHTML = "";
+      for (const col of COLUMNS) {
+        const items = tasks
+          .filter(t => t.status === col.status)
+          .sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]);
+        const column = document.createElement("div");
+        column.className = "column";
+        column.dataset.status = col.status;
+        column.innerHTML = `<h2>${col.label}<span class="count">${items.length}</span></h2>`;
+
+        column.addEventListener("dragover", (e) => {
+          if (!dragFrom) return;
+          const to = column.dataset.status;
+          if (dragFrom.status === to) return; // same column: no-op, not a drop target
+          e.preventDefault(); // required to allow a drop
+          const ok = canMove(dragFrom.status, to);
+          e.dataTransfer.dropEffect = ok ? "move" : "none";
+          column.classList.toggle("drop-ok", ok);
+          column.classList.toggle("drop-bad", !ok);
+        });
+        column.addEventListener("dragleave", () => {
+          column.classList.remove("drop-ok", "drop-bad");
+        });
+        column.addEventListener("drop", (e) => {
+          e.preventDefault();
+          column.classList.remove("drop-ok", "drop-bad");
+          if (!dragFrom) return;
+          const to = column.dataset.status;
+          if (dragFrom.status === to) return;
+          if (!canMove(dragFrom.status, to)) {
+            toast(`Can't move ${dragFrom.status} → ${to}`);
+            return;
+          }
+          moveTask(dragFrom.id, to);
+        });
+        if (items.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.textContent = "No tasks";
+          column.appendChild(empty);
+        } else {
+          items.forEach(t => column.appendChild(cardEl(t)));
+        }
+        board.appendChild(column);
+      }
+    }
+
+    async function moveTask(id, to) {
+      try {
+        await api(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify({ status: to }) });
+        load();
+      } catch (e) { toast(e.message); }
+    }
+
+    async function deleteTask(id, title) {
+      if (!confirm(`Delete "${title}"?`)) return;
+      try {
+        await api(`/tasks/${id}`, { method: "DELETE" });
+        load();
+      } catch (e) { toast(e.message); }
+    }
+
+    const dialog = document.getElementById("task-dialog");
+
+    document.getElementById("open-new").onclick = () => {
+      document.getElementById("new-form").reset(); // restores default selects (ToDo / Medium)
+      dialog.showModal();
+      document.getElementById("f-title").focus();
+    };
+    document.getElementById("cancel-new").onclick = () => dialog.close();
+
+    document.getElementById("new-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const title = document.getElementById("f-title").value.trim();
+      if (!title) { toast("Title is required"); return; }
+      const payload = {
+        title,
+        description: document.getElementById("f-desc").value,
+        status: document.getElementById("f-status").value,
+        priority: document.getElementById("f-priority").value,
+      };
+      const assignee = document.getElementById("f-assignee").value.trim();
+      if (assignee) payload.assignee = assignee; // omit when blank so it stays null
+      const due = document.getElementById("f-due").value;
+      if (due) payload.due_date = due; // omit when blank so it stays null
+      const tags = parseTags(document.getElementById("f-tags").value);
+      if (tags.length) payload.tags = tags; // omit when empty
+      try {
+        await api("/tasks", { method: "POST", body: JSON.stringify(payload) });
+        dialog.close();
+        load();
+      } catch (e) { toast(e.message); }
+    };
+
+    document.getElementById("refresh").onclick = load;
+
+    // View filters re-render from the cached list (no refetch).
+    document.getElementById("filter-tag").oninput = (e) => { filters.tag = e.target.value; render(); };
+    document.getElementById("filter-overdue").onchange = (e) => { filters.overdue = e.target.checked; render(); };
+    document.getElementById("clear-filters").onclick = () => {
+      filters.tag = ""; filters.overdue = false;
+      document.getElementById("filter-tag").value = "";
+      document.getElementById("filter-overdue").checked = false;
+      render();
+    };
+
+    load();
+  </script>
+</body>
+</html>
