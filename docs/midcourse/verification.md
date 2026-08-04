@@ -23,11 +23,34 @@ done not overdue: False               # Done + past date
 ## 3. Final automated suite (after changes)
 ```
 $ python -m pytest -q
-61 passed, 7 warnings in 0.34s
+64 passed, 7 warnings in 0.38s
 ```
-21 new tests added (11 due-date, 10 tag) — well over the required 4. No existing
-test was modified; the additions are purely additive, proving backward
-compatibility of the CRUD contract.
+24 new tests added (11 due-date, 10 tag, 3 for the null-title fix below) — well over
+the required 4. No existing test was modified; the additions are purely additive,
+proving backward compatibility of the CRUD contract.
+
+## 3b. Reviewer-flagged fix — `PATCH` with explicit `title: null`
+**Reported:** sending `{"title": null}` to `PATCH /tasks/{id}` returned `200` and
+stored a null title, with no test covering it.
+
+**Root cause:** `title` is `Optional[str] = None`, so an *omitted* field and an
+*explicit* `null` both arrive as `None` at the field validator, which returned
+`None` unchanged. `storage.update_task` uses `model_dump(exclude_unset=True)`, and
+an explicit `null` counts as "set" — so `None` was written onto the task.
+
+**Fix:** added a `@model_validator(mode="before")` on `TaskUpdate` that inspects the
+raw payload and rejects `title` present-and-null with a `422` (an omitted `title`
+still passes — partial updates are unaffected). Verified end-to-end:
+```
+explicit null title -> 422        # {"title": null}  → rejected
+title after reject   -> 'orig'    # stored value untouched, not blanked
+omit title, edit prio-> 200       # partial update without title still works
+clear due_date null  -> 200/None  # legitimate null-clearing NOT broken
+clear assignee null  -> 200       # legitimate null-clearing NOT broken
+```
+New tests: `test_patch_explicit_null_title_returns_422`,
+`test_patch_explicit_null_title_does_not_mutate_task`,
+`test_patch_omitted_title_still_allowed`.
 
 ## 4. Frontend check
 ```

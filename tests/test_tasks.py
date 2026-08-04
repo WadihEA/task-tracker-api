@@ -241,6 +241,32 @@ def test_patch_blank_title_returns_422(client, created_task):
     assert response.status_code == 422
 
 
+def test_patch_explicit_null_title_returns_422(client, created_task):
+    # Sending title: null must be rejected (a task always has a title) — distinct
+    # from omitting title, which is a valid partial update.
+    task_id = created_task["id"]
+    response = client.patch(f"/tasks/{task_id}", json={"title": None})
+    assert response.status_code == 422
+
+
+def test_patch_explicit_null_title_does_not_mutate_task(client, created_task):
+    # The rejected update must leave the stored title untouched, not blank it out.
+    task_id = created_task["id"]
+    client.patch(f"/tasks/{task_id}", json={"title": None})
+    after = client.get(f"/tasks/{task_id}").json()
+    assert after["title"] == "fixture task"
+
+
+def test_patch_omitted_title_still_allowed(client, created_task):
+    # Guard against over-correcting: a partial update WITHOUT title must still work.
+    task_id = created_task["id"]
+    response = client.patch(f"/tasks/{task_id}", json={"priority": "High"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["title"] == "fixture task"
+    assert body["priority"] == "High"
+
+
 def test_patch_title_is_trimmed(client, created_task):
     task_id = created_task["id"]
     response = client.patch(f"/tasks/{task_id}", json={"title": "  spaced  "})

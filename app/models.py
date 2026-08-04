@@ -4,7 +4,14 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 # Tag constraints (Feature: tags/labels). Kept small and explicit so both the
 # create and update validators enforce the same rules.
@@ -93,6 +100,18 @@ class TaskUpdate(BaseModel):
     assignee: Optional[str] = None
     due_date: Optional[date] = None
     tags: Optional[list[str]] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_explicit_null_title(cls, data: object) -> object:
+        # A partial update may OMIT title (leave it unchanged), but it must never
+        # set it to null — a task always has a title. Because title is Optional,
+        # an omitted field and an explicit `null` both arrive as None at the field
+        # validator; only the raw payload can tell them apart (the key is present
+        # exactly when the client sent it), so we check it here.
+        if isinstance(data, dict) and "title" in data and data["title"] is None:
+            raise ValueError("Title must not be null")
+        return data
 
     @field_validator("title", mode="before")
     @classmethod
