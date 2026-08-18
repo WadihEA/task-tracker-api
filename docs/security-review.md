@@ -15,6 +15,9 @@
 
 | Severity | File:Line | Finding | Suggested Fix | Reason |
 |----------|-----------|---------|----------------|--------|
+| Low | `tests/verify_a.py` (whole file) | The file isn't collected by pytest (its name doesn't match `test_*.py`/`*_test.py`), so its 8 assertions never run automatically via `pytest -q` or in CI (`.github/workflows/ci.yml:27` just runs `pytest -v --tb=short`). | Rename to `test_verify_a.py` so it's collected, fold its checks into `tests/test_tasks.py`, or delete it if superseded. | A file that reads like a validation suite but silently never executes creates false confidence that those checks are enforced. |
+| Low | `Dockerfile:4,19` | The base image `python:3.11-slim` is pinned by tag only, not by digest, so `docker build` isn't fully reproducible over time as the tag gets rebuilt upstream. | Pin to a specific digest (`python:3.11-slim@sha256:...`) or explicitly accept the tradeoff, same as the unpinned-`requirements.txt` tradeoff already noted in F5. | Same reproducibility gap as F5, just at the Docker base-image layer instead of the Python dependency layer — worth tracking together. |
+| Medium | `Dockerfile:50` + `app/main.py:19-24` | The container binds `0.0.0.0:8000` with no auth (F3) and CORS wide open to `*` (F4) — nothing in the Docker artifact itself adds access control, so the image is "deploy-ready" to expose a fully open, unauthenticated task API on any network it's run on. | Add an explicit "LOCAL/DEV ONLY — do not expose publicly" warning in the Dockerfile/README so the risk travels with the deployable artifact, not just the source. | F3 and F4 were reported as separate, per-file findings; connecting them to the concrete deployment artifact (the container) shows where they'd actually bite if someone `docker run -p 8000:8000`'d this on a public host. |
 
 ## Reconciliation
 
