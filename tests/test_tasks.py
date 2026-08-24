@@ -181,6 +181,28 @@ def test_create_title_over_200_returns_422(client):
     assert response.status_code == 422
 
 
+def test_create_description_over_2000_returns_422(client):
+    response = client.post("/tasks", json={"title": "x", "description": "x" * 2001})
+    assert response.status_code == 422
+
+
+def test_create_assignee_over_100_returns_422(client):
+    response = client.post("/tasks", json={"title": "x", "assignee": "x" * 101})
+    assert response.status_code == 422
+
+
+def test_patch_description_over_2000_returns_422(client, created_task):
+    task_id = created_task["id"]
+    response = client.patch(f"/tasks/{task_id}", json={"description": "x" * 2001})
+    assert response.status_code == 422
+
+
+def test_patch_assignee_over_100_returns_422(client, created_task):
+    task_id = created_task["id"]
+    response = client.patch(f"/tasks/{task_id}", json={"assignee": "x" * 101})
+    assert response.status_code == 422
+
+
 # ---------------------------------------------------------------------------
 # Edge cases: status transitions (Done is now terminal)
 # ---------------------------------------------------------------------------

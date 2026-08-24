@@ -19,6 +19,7 @@
 - Full test suite runs locally before I accept any AI-authored change, every time, no exceptions
 - I re-derive severity/confidence on security-style findings myself instead of accepting the AI's grade at face value
 - If an AI-suggested fix touches something already flagged as an intentional course-scope tradeoff (e.g. open CORS, no auth), I check the reasoning still holds before touching it
+- When AI adds a new constraint (a length cap, a validator), I check whether a test for the boundary actually exists before calling it done — I caught this gap myself during the final project's mini code review and had to add the missing tests after the fact
 
 ## 5. What I am still figuring out
 - Where the line is between "let AI draft a self-assessment section" and quietly defeating the point of doing it myself

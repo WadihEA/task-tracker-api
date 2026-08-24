@@ -311,7 +311,7 @@
       </div>
       <div class="field">
         <label for="f-desc">Description</label>
-        <textarea id="f-desc" rows="3" placeholder="Details (optional)"></textarea>
+        <textarea id="f-desc" rows="3" maxlength="2000" placeholder="Details (optional)"></textarea>
       </div>
       <div class="field">
         <label for="f-status">Status</label>
@@ -331,7 +331,7 @@
       </div>
       <div class="field">
         <label for="f-assignee">Assignee</label>
-        <input id="f-assignee" placeholder="Name (optional)" />
+        <input id="f-assignee" maxlength="100" placeholder="Name (optional)" />
       </div>
       <div class="field">
         <label for="f-due">Due date</label>
@@ -497,7 +497,7 @@
         .map(p => `<option value="${p}"${p === task.priority ? " selected" : ""}>${p}</option>`).join("");
       el.innerHTML = `
         <input class="edit-title" maxlength="200" value="${esc(task.title)}" placeholder="Title" />
-        <textarea class="edit-desc" rows="2" placeholder="Description">${esc(task.description || "")}</textarea>
+        <textarea class="edit-desc" rows="2" maxlength="2000" placeholder="Description">${esc(task.description || "")}</textarea>
         <select class="edit-priority">${opts}</select>
         <input class="edit-due" type="date" value="${esc(task.due_date || "")}" />
         <input class="edit-tags" value="${esc((task.tags || []).join(", "))}" placeholder="tags, comma separated" />

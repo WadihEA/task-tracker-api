@@ -29,7 +29,7 @@ deployment are explicitly out of scope per `README.md`.
   ```
   python -m pytest -q
   ```
-  72 tests currently pass (`tests/test_tasks.py`, `tests/test_health.py`,
+  76 tests currently pass (`tests/test_tasks.py`, `tests/test_health.py`,
   `tests/test_verify_a.py`).
 - **Frontend**: open `frontend/index.html` directly in a browser while the API
   is running; it calls `http://localhost:8000` and CORS is wide open
