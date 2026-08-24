@@ -29,17 +29,17 @@ deployment are explicitly out of scope per `README.md`.
   ```
   python -m pytest -q
   ```
-  64 tests currently pass (`tests/test_tasks.py`, `tests/test_health.py`).
-  `tests/verify_a.py` is a standalone validation script (not named `test_*.py`,
-  so pytest does not collect it automatically).
+  72 tests currently pass (`tests/test_tasks.py`, `tests/test_health.py`,
+  `tests/test_verify_a.py`).
 - **Frontend**: open `frontend/index.html` directly in a browser while the API
   is running; it calls `http://localhost:8000` and CORS is wide open
   (`allow_origins=["*"]`) for local use only.
 - Config: `app/core/config.py` reads `APP_ENV` and `PORT` from `.env` via
   `python-dotenv` (see `.env.example`). No other configurable settings found.
-- Docker/CI: **not confirmed against current tree** — memory references a
-  `Dockerfile`/CI workflow from a prior session; re-verify presence and
-  contents before citing them, as this pass did not inspect those files.
+- Docker/CI: confirmed present. `Dockerfile` builds from `python:3.11-slim`,
+  installs `requirements.txt` (pinned versions), and runs uvicorn on 8000.
+  `.github/workflows/ci.yml` installs `requirements.txt` and runs
+  `pytest -v --tb=short` on every push and on PRs into `main`.
 
 ## 3. Business rules visible in the code
 
