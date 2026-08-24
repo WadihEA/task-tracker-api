@@ -18,6 +18,11 @@ from pydantic import (
 MAX_TAGS = 10
 MAX_TAG_LENGTH = 30
 
+# Field-length caps (release hardening: security-review.md F1). title already
+# capped at 200; these mirror that so no free-text field is unbounded.
+MAX_DESCRIPTION_LENGTH = 2000
+MAX_ASSIGNEE_LENGTH = 100
+
 
 class TaskStatus(str, Enum):
     TODO = "ToDo"
@@ -60,10 +65,10 @@ class TaskCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str = Field(..., min_length=1, max_length=200)
-    description: Optional[str] = ""
+    description: Optional[str] = Field(default="", max_length=MAX_DESCRIPTION_LENGTH)
     status: TaskStatus = TaskStatus.TODO
     priority: TaskPriority = TaskPriority.MEDIUM
-    assignee: Optional[str] = None
+    assignee: Optional[str] = Field(default=None, max_length=MAX_ASSIGNEE_LENGTH)
     due_date: Optional[date] = None
     tags: list[str] = Field(default_factory=list)
 
@@ -94,10 +99,10 @@ class TaskUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: Optional[str] = None
-    description: Optional[str] = None
+    description: Optional[str] = Field(default=None, max_length=MAX_DESCRIPTION_LENGTH)
     status: Optional[TaskStatus] = None
     priority: Optional[TaskPriority] = None
-    assignee: Optional[str] = None
+    assignee: Optional[str] = Field(default=None, max_length=MAX_ASSIGNEE_LENGTH)
     due_date: Optional[date] = None
     tags: Optional[list[str]] = None
 

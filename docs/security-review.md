@@ -19,6 +19,14 @@
 | Low | `Dockerfile:4,19` | The base image `python:3.11-slim` is pinned by tag only, not by digest, so `docker build` isn't fully reproducible over time as the tag gets rebuilt upstream. | Pin to a specific digest (`python:3.11-slim@sha256:...`) or explicitly accept the tradeoff, same as the unpinned-`requirements.txt` tradeoff already noted in F5. | Same reproducibility gap as F5, just at the Docker base-image layer instead of the Python dependency layer — worth tracking together. |
 | Medium | `Dockerfile:50` + `app/main.py:19-24` | The container binds `0.0.0.0:8000` with no auth (F3) and CORS wide open to `*` (F4) — nothing in the Docker artifact itself adds access control, so the image is "deploy-ready" to expose a fully open, unauthenticated task API on any network it's run on. | Add an explicit "LOCAL/DEV ONLY — do not expose publicly" warning in the Dockerfile/README so the risk travels with the deployable artifact, not just the source. | F3 and F4 were reported as separate, per-file findings; connecting them to the concrete deployment artifact (the container) shows where they'd actually bite if someone `docker run -p 8000:8000`'d this on a public host. |
 
+## Fixed (final-project hardening pass)
+
+| Finding | Fix |
+|---------|-----|
+| F1 / F6 — `description`/`assignee` unbounded | Added `max_length` (`MAX_DESCRIPTION_LENGTH=2000`, `MAX_ASSIGNEE_LENGTH=100`) to both fields in `TaskCreate`/`TaskUpdate` (`app/models.py`). |
+| F5 — unpinned dependencies | `requirements.txt` pinned to the exact versions verified in the project venv (fastapi==0.140.0, uvicorn==0.51.0, pydantic==2.13.4, python-dotenv==1.2.2, pytest==9.1.1, httpx==0.28.1). |
+| Manual — `verify_a.py` never collected by pytest | Replaced with `tests/test_verify_a.py`: same checks, rewritten as real `pytest.raises` assertions instead of print-based pass/fail. Suite grew from 64 to 72 passing tests. |
+
 ## Reconciliation
 
 ### Agreement
@@ -31,3 +39,6 @@
 
 | Rank | Finding | Severity | Owner | Next Step |
 |------|---------|----------|-------|-----------|
+| 1 | F2 — no cap on stored tasks / no request-body size limit | Medium | TBD | Add a max-task-count guard or body-size limit before any deployment beyond localhost. |
+| 2 | F4 — CORS fully open (`allow_origins=["*"]`) | Medium | TBD | Restrict `allow_origins` before any non-local deployment. |
+| 3 | Manual — `Dockerfile` base image pinned by tag only, not digest | Low | TBD | Pin `python:3.11-slim` to a specific `sha256` digest, or explicitly accept the tradeoff. |
