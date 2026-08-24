@@ -18,8 +18,9 @@
 ## CI evidence
 
 - Workflow file: `.github/workflows/ci.yml`
-- Latest run: success — https://github.com/WadihEA/task-tracker-api/actions/runs/32772281272
-  (triggered by the push of the governance/ai-usage doc commit on `final-project`)
+- Latest run: success — https://github.com/WadihEA/task-tracker-api/actions/runs/32773887086
+  (triggered by the push of this final-project-evidence commit; the prior push also ran green:
+  https://github.com/WadihEA/task-tracker-api/actions/runs/32772281272)
 - Test command used by CI: `pytest -v --tb=short`
 - Shortcut check (read `.github/workflows/ci.yml` directly): no `continue-on-error`, no `|| true`,
   pytest step is not skipped or conditional, Python version is explicitly pinned (`"3.11"`, not a
